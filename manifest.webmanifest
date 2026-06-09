@@ -1,0 +1,17 @@
+{
+  "name": "Lab Escape - Black Hole Game",
+  "short_name": "Black Hole",
+  "description": "A CERN experiment gone wrong! Play as a black hole and devour everything across 9 stages, from the lab to the entire universe.",
+  "start_url": "./black-hole-game.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
