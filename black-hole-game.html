@@ -393,7 +393,9 @@
 
         /* Mobile boost button - left side (left thumb) */
         #mobileBoostBtn {
-            display: none; /* shown via JS during gameplay */
+            display: flex;
+            align-items: center;
+            justify-content: center;
             width: 90px;
             height: 90px;
             border-radius: 50%;
@@ -422,7 +424,7 @@
 
         /* Virtual joystick - right side (right thumb for movement) */
         #joystickZone {
-            display: none;
+            display: block;
             position: relative;
             width: 120px;
             height: 120px;
@@ -448,6 +450,81 @@
             top: 35px;
             left: 35px;
             pointer-events: none;
+        }
+
+        /* A control cluster = one player's joystick + boost button */
+        .ctrlCluster {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .ctrlCluster.hidden { display: none !important; }
+        /* Single player: spread the one cluster across the full width */
+        #mobileControls.solo #p1Controls { width: 100%; justify-content: space-between; }
+        /* Player 2 controls (green) */
+        #joystickZone2 {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            z-index: 15;
+            pointer-events: auto;
+            flex-shrink: 0;
+        }
+        #joystickBase2 {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(52, 211, 153, 0.35);
+        }
+        #joystickThumb2 {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(52, 211, 153, 0.75), rgba(52, 211, 153, 0.3));
+            border: 2px solid rgba(52, 211, 153, 0.7);
+            top: 35px;
+            left: 35px;
+            pointer-events: none;
+        }
+        #mobileBoostBtn2 {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.8), rgba(16, 185, 129, 0.3));
+            border: 3px solid #34d399;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 16;
+            text-shadow: 1px 1px #000;
+            box-shadow: 0 0 15px rgba(52, 211, 153, 0.4);
+            flex-shrink: 0;
+        }
+        #mobileBoostBtn2:active, #mobileBoostBtn2.active {
+            background: radial-gradient(circle, rgba(251, 191, 36, 0.9), rgba(251, 191, 36, 0.4));
+            border-color: #fbbf24;
+            box-shadow: 0 0 25px rgba(251, 191, 36, 0.6);
+        }
+        #mobileBoostBtn2.depleted {
+            background: radial-gradient(circle, rgba(100, 100, 100, 0.5), rgba(50, 50, 50, 0.3));
+            border-color: #666;
+            box-shadow: none;
+        }
+        /* tiny P1/P2 tag above each joystick in 2-player */
+        .ctrlTag {
+            position: absolute;
+            top: -16px;
+            left: 0;
+            width: 120px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            font-weight: bold;
         }
 
         /* Phone (portrait, small screens) */
@@ -537,7 +614,8 @@
             <p style="font-size: 12px;">Tap the on-screen buttons, or press Q / E</p>
             <p style="font-size: 12px;">Q = shrink a bit, get ALL power-ups | E = lose speed, grow bigger</p>
             <p style="margin-top: 10px; color: #34d399;">2-PLAYER CO-OP:</p>
-            <p style="font-size: 12px;">P1: WASD + SPACE | P2: Arrow keys + RIGHT SHIFT</p>
+            <p style="font-size: 12px;">On a tablet: each player gets their own joystick (P1 left, P2 right)</p>
+            <p style="font-size: 12px;">On a keyboard: P1 = WASD + SPACE | P2 = Arrow keys + RIGHT SHIFT</p>
             <p style="font-size: 12px;">P2 trade-offs: , = all power-ups | . = bigger</p>
             <div id="highScores">
                 <h3>HIGH SCORES</h3>
@@ -598,10 +676,24 @@
 
     <!-- Mobile controls - below the game canvas, not overlaying it -->
     <div id="mobileControls">
-        <button id="mobileBoostBtn">BOOST</button>
-        <div id="joystickZone">
-            <div id="joystickBase">
-                <div id="joystickThumb"></div>
+        <!-- Player 1 cluster (left) -->
+        <div class="ctrlCluster hidden" id="p1Controls">
+            <div id="joystickZone">
+                <div class="ctrlTag" id="p1Tag" style="color:#c084fc; display:none;">P1</div>
+                <div id="joystickBase">
+                    <div id="joystickThumb"></div>
+                </div>
+            </div>
+            <button id="mobileBoostBtn">BOOST</button>
+        </div>
+        <!-- Player 2 cluster (right) - shown only in 2-player -->
+        <div class="ctrlCluster hidden" id="p2Controls">
+            <button id="mobileBoostBtn2">BOOST</button>
+            <div id="joystickZone2">
+                <div class="ctrlTag" style="color:#34d399;">P2</div>
+                <div id="joystickBase2">
+                    <div id="joystickThumb2"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -648,9 +740,9 @@
         let touchX = 400;
         let touchY = 300;
         let touchActive = false;
-        let joystickDX = 0;
-        let joystickDY = 0;
-        let joystickActive = false;
+        // Per-player virtual joystick state (joy1 = Player 1, joy2 = Player 2 on tablet)
+        const joy1 = { dx: 0, dy: 0, active: false };
+        const joy2 = { dx: 0, dy: 0, active: false };
 
         function detectDevice() {
             const ua = navigator.userAgent;
@@ -1030,7 +1122,8 @@
         const DISK_DRAIN_RATE = 1.5;
         const DISK_RECHARGE_RATE = 0.4;
         let diskBoostActive = false;
-        let mobileBoostHeld = false;
+        let boost1 = false; // P1 on-screen boost held
+        let boost2 = false; // P2 on-screen boost held
 
         // Rival black holes
         let rivalBlackHoles = [];
@@ -1198,26 +1291,27 @@
                 if (pressed(c.left)) { dx -= 1; if (this.useMouse) mouseActive = false; }
                 if (pressed(c.right)) { dx += 1; if (this.useMouse) mouseActive = false; }
 
-                // Mouse / touch / joystick following (Player 1 only)
-                if (this.useMouse) {
-                    // Virtual joystick (mobile) - direct directional input
-                    if (joystickActive && dx === 0 && dy === 0) {
-                        dx = joystickDX;
-                        dy = joystickDY;
-                    }
-                    if (!joystickActive) {
-                        const inputX = touchActive ? touchX : mouseX;
-                        const inputY = touchActive ? touchY : mouseY;
-                        const inputActive = touchActive || mouseActive;
-                        if (inputActive && dx === 0 && dy === 0) {
-                            const mouseDistX = inputX - this.x;
-                            const mouseDistY = inputY - this.y;
-                            const mouseDist = Math.sqrt(mouseDistX * mouseDistX + mouseDistY * mouseDistY);
+                // This player's own virtual joystick (P1 -> joy1, P2 -> joy2)
+                const myJoy = this.isP2 ? joy2 : joy1;
+                if (myJoy.active && dx === 0 && dy === 0) {
+                    dx = myJoy.dx;
+                    dy = myJoy.dy;
+                }
 
-                            if (mouseDist > 10) {
-                                dx += (mouseDistX / mouseDist);
-                                dy += (mouseDistY / mouseDist);
-                            }
+                // Mouse / touch following: Player 1 in single-player only
+                // (in 2-player on a tablet each kid uses their own joystick instead)
+                if (this.useMouse && numPlayers === 1 && !myJoy.active) {
+                    const inputX = touchActive ? touchX : mouseX;
+                    const inputY = touchActive ? touchY : mouseY;
+                    const inputActive = touchActive || mouseActive;
+                    if (inputActive && dx === 0 && dy === 0) {
+                        const mouseDistX = inputX - this.x;
+                        const mouseDistY = inputY - this.y;
+                        const mouseDist = Math.sqrt(mouseDistX * mouseDistX + mouseDistY * mouseDistY);
+
+                        if (mouseDist > 10) {
+                            dx += (mouseDistX / mouseDist);
+                            dy += (mouseDistY / mouseDist);
                         }
                     }
                 }
@@ -1238,7 +1332,8 @@
                 // Pulse animation
                 this.pulsePhase += 0.1;
                 // Disk boost: spin 4x faster
-                const boostHeld = pressed(c.boost) || (this.useMouse && mobileBoostHeld);
+                const myBoost = this.isP2 ? boost2 : boost1;
+                const boostHeld = pressed(c.boost) || myBoost;
                 this.boostActive = boostHeld && this.energy > 0;
                 if (this.boostActive) {
                     this.spiralAngle += 0.32;
@@ -5757,10 +5852,12 @@
                     energyBarContainer2.classList.remove('hidden');
                 }
                 if (isMobile) {
-                    mobileBoostBtn.style.display = 'flex';
-                    mobileBoostBtn.style.alignItems = 'center';
-                    mobileBoostBtn.style.justifyContent = 'center';
-                    document.getElementById('joystickZone').style.display = 'block';
+                    const twoP = numPlayers === 2;
+                    document.getElementById('p1Controls').classList.remove('hidden');
+                    document.getElementById('p2Controls').classList.toggle('hidden', !twoP);
+                    document.getElementById('mobileControls').classList.toggle('solo', !twoP);
+                    // Only label the joysticks P1/P2 when there are two players
+                    document.getElementById('p1Tag').style.display = twoP ? 'block' : 'none';
                 }
                 gameLoop();
             });
@@ -5954,8 +6051,8 @@
             document.getElementById('energyBarContainer').classList.add('hidden');
             energyLabel2.classList.add('hidden');
             energyBarContainer2.classList.add('hidden');
-            mobileBoostBtn.style.display = 'none';
-            document.getElementById('joystickZone').style.display = 'none';
+            document.getElementById('p1Controls').classList.add('hidden');
+            document.getElementById('p2Controls').classList.add('hidden');
             tradeBtns.classList.add('hidden');
         }
 
@@ -6302,17 +6399,16 @@
                     : (pct2 < 50 ? 'linear-gradient(90deg, #fbbf24, #f59e0b)' : 'linear-gradient(90deg, #059669, #34d399)');
             }
 
-            // Mobile boost button state (Player 1)
+            // Mobile boost button states
             if (isMobile) {
-                if (blackHole.energy <= 0) {
-                    mobileBoostBtn.classList.add('depleted');
-                    mobileBoostBtn.classList.remove('active');
-                } else if (mobileBoostHeld) {
-                    mobileBoostBtn.classList.add('active');
-                    mobileBoostBtn.classList.remove('depleted');
-                } else {
-                    mobileBoostBtn.classList.remove('active', 'depleted');
-                }
+                const setBoostBtn = (btn, bh, held) => {
+                    if (!btn || !bh) return;
+                    if (bh.energy <= 0) { btn.classList.add('depleted'); btn.classList.remove('active'); }
+                    else if (held) { btn.classList.add('active'); btn.classList.remove('depleted'); }
+                    else { btn.classList.remove('active', 'depleted'); }
+                };
+                setBoostBtn(mobileBoostBtn, blackHole, boost1);
+                setBoostBtn(document.getElementById('mobileBoostBtn2'), blackHole2, boost2);
             }
 
             checkCollisions();
@@ -6339,44 +6435,119 @@
             }
 
             if (stage === 1) {
-                // Lab background with gradient
-                const labBgGrad = ctx.createRadialGradient(
-                    canvas.width / 2, canvas.height / 2, 0,
-                    canvas.width / 2, canvas.height / 2, canvas.width * 0.7
-                );
-                labBgGrad.addColorStop(0, '#1e3a5f');
-                labBgGrad.addColorStop(1, '#0f172a');
-                ctx.fillStyle = labBgGrad;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // ===== CERN - the Large Hadron Collider (top-down) =====
+                const w = canvas.width, h = canvas.height;
+                const cx = w / 2, cy = h / 2;
+                const t = Date.now() / 1000;
 
-                // Starfield behind the grid
+                // Dark technical background
+                const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, w * 0.7);
+                bg.addColorStop(0, '#0b1f3a');
+                bg.addColorStop(1, '#060d1a');
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, w, h);
+
+                // Faint control-room floor grid
+                ctx.strokeStyle = 'rgba(59, 130, 246, 0.08)';
+                ctx.lineWidth = 1;
+                for (let x = 0; x < w; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+                for (let y = 0; y < h; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+                // Equipment lights
                 stars.forEach(s => s.draw());
 
-                // Grid with glow effect
-                ctx.strokeStyle = 'rgba(59, 130, 246, 0.15)';
-                ctx.lineWidth = 1;
-                for (let x = 0; x < canvas.width; x += 40) {
-                    ctx.beginPath();
-                    ctx.moveTo(x, 0);
-                    ctx.lineTo(x, canvas.height);
-                    ctx.stroke();
-                }
-                for (let y = 0; y < canvas.height; y += 40) {
-                    ctx.beginPath();
-                    ctx.moveTo(0, y);
-                    ctx.lineTo(canvas.width, y);
-                    ctx.stroke();
+                const R = Math.min(w, h) * 0.42;  // accelerator ring radius
+                const ringW = 26;                 // tunnel thickness
+
+                ctx.save();
+                ctx.translate(cx, cy);
+
+                // soft glow around the ring
+                const rg = ctx.createRadialGradient(0, 0, R - 50, 0, 0, R + 50);
+                rg.addColorStop(0, 'rgba(34,211,238,0)');
+                rg.addColorStop(0.5, 'rgba(34,211,238,0.12)');
+                rg.addColorStop(1, 'rgba(34,211,238,0)');
+                ctx.fillStyle = rg;
+                ctx.beginPath(); ctx.arc(0, 0, R + 50, 0, Math.PI * 2); ctx.fill();
+
+                // tunnel band (lighter than the floor so the ring reads clearly)
+                ctx.strokeStyle = 'rgba(30, 58, 95, 0.7)';
+                ctx.lineWidth = ringW;
+                ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke();
+
+                // bright neon ring line
+                ctx.shadowColor = 'rgba(34,211,238,0.9)';
+                ctx.shadowBlur = 16;
+                ctx.strokeStyle = 'rgba(34, 211, 238, 0.6)';
+                ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // inner & outer rails
+                ctx.strokeStyle = 'rgba(125, 211, 252, 0.45)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(0, 0, R - ringW / 2, 0, Math.PI * 2); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, 0, R + ringW / 2, 0, Math.PI * 2); ctx.stroke();
+
+                // blue dipole magnet segments around the ring
+                const segs = 60;
+                for (let i = 0; i < segs; i++) {
+                    ctx.save();
+                    ctx.rotate((i / segs) * Math.PI * 2);
+                    ctx.fillStyle = (i % 2) ? 'rgba(59, 130, 246, 0.9)' : 'rgba(96, 165, 250, 0.7)';
+                    ctx.fillRect(R - ringW / 2, -7, ringW, 14);
+                    ctx.restore();
                 }
 
-                // Subtle corner vignette
-                const vignette = ctx.createRadialGradient(
-                    canvas.width / 2, canvas.height / 2, canvas.height * 0.3,
-                    canvas.width / 2, canvas.height / 2, canvas.width * 0.8
-                );
+                // two counter-rotating particle beams (racing bunches)
+                const bunches = 50;
+                for (let i = 0; i < bunches; i++) {
+                    const a1 = (i / bunches) * Math.PI * 2 + t * 1.3;
+                    ctx.fillStyle = 'rgba(255, 190, 90, ' + (0.5 + 0.5 * Math.sin(a1 * 4 + t * 6)) + ')';
+                    ctx.beginPath(); ctx.arc(Math.cos(a1) * (R - 5), Math.sin(a1) * (R - 5), 2.4, 0, Math.PI * 2); ctx.fill();
+                    const a2 = (i / bunches) * Math.PI * 2 - t * 1.3;
+                    ctx.fillStyle = 'rgba(120, 230, 255, ' + (0.5 + 0.5 * Math.sin(a2 * 4 - t * 6)) + ')';
+                    ctx.beginPath(); ctx.arc(Math.cos(a2) * (R + 5), Math.sin(a2) * (R + 5), 2.4, 0, Math.PI * 2); ctx.fill();
+                }
+                ctx.restore();
+
+                // detector node sitting on the ring (top) - the experiment
+                const dAng = -Math.PI / 2;
+                const ddx = cx + Math.cos(dAng) * R, ddy = cy + Math.sin(dAng) * R;
+                const dGlow = ctx.createRadialGradient(ddx, ddy, 0, ddx, ddy, 36);
+                dGlow.addColorStop(0, 'rgba(255, 220, 120, 0.5)');
+                dGlow.addColorStop(1, 'rgba(255, 220, 120, 0)');
+                ctx.fillStyle = dGlow;
+                ctx.beginPath(); ctx.arc(ddx, ddy, 36, 0, Math.PI * 2); ctx.fill();
+                ctx.save();
+                ctx.translate(ddx, ddy);
+                ctx.fillStyle = 'rgba(30, 58, 95, 0.95)';
+                ctx.strokeStyle = '#22d3ee';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; ctx.lineTo(Math.cos(a) * 16, Math.sin(a) * 16); }
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+                ctx.restore();
+
+                // faint label
+                ctx.fillStyle = 'rgba(34, 211, 238, 0.16)';
+                ctx.font = 'bold 14px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillText('CERN · LARGE HADRON COLLIDER', cx, h - 16);
+
+                // soft glow at the centre where the black hole formed
+                const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, 90);
+                core.addColorStop(0, 'rgba(168, 85, 247, 0.08)');
+                core.addColorStop(1, 'rgba(168, 85, 247, 0)');
+                ctx.fillStyle = core;
+                ctx.beginPath(); ctx.arc(cx, cy, 90, 0, Math.PI * 2); ctx.fill();
+
+                // vignette
+                const vignette = ctx.createRadialGradient(cx, cy, h * 0.3, cx, cy, w * 0.8);
                 vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
-                vignette.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
+                vignette.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
                 ctx.fillStyle = vignette;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillRect(0, 0, w, h);
             } else if (stage === 2) {
                 // Switzerland - Alpine valley with mountains, lake, railway, tunnel
                 const w = canvas.width;
@@ -7514,106 +7685,64 @@
             touchActive = false;
         }, { passive: false });
 
-        // Virtual joystick
-        const joystickZone = document.getElementById('joystickZone');
-        const joystickBase = document.getElementById('joystickBase');
-        const joystickThumb = document.getElementById('joystickThumb');
-        let joystickTouchId = null;
+        // Virtual joysticks (one per player on touch devices)
+        function setupJoystick(zoneId, baseId, thumbId, state) {
+            const zone = document.getElementById(zoneId);
+            const base = document.getElementById(baseId);
+            const thumb = document.getElementById(thumbId);
+            let touchId = null;
 
-        function handleJoystick(touchX, touchY) {
-            const rect = joystickBase.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            const maxDist = rect.width / 2 - 10;
-
-            let dx = touchX - centerX;
-            let dy = touchY - centerY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            if (dist > maxDist) {
-                dx = (dx / dist) * maxDist;
-                dy = (dy / dist) * maxDist;
+            function handle(touchX, touchY) {
+                const rect = base.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const maxDist = rect.width / 2 - 10;
+                let dx = touchX - cx, dy = touchY - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > maxDist) { dx = (dx / dist) * maxDist; dy = (dy / dist) * maxDist; }
+                thumb.style.left = (35 + dx) + 'px';
+                thumb.style.top = (35 + dy) + 'px';
+                if (dist > 8) { state.dx = dx / maxDist; state.dy = dy / maxDist; state.active = true; }
+                else { state.dx = 0; state.dy = 0; state.active = false; }
             }
-
-            joystickThumb.style.left = (35 + dx) + 'px';
-            joystickThumb.style.top = (35 + dy) + 'px';
-
-            if (dist > 8) {
-                joystickDX = dx / maxDist;
-                joystickDY = dy / maxDist;
-                joystickActive = true;
-            } else {
-                joystickDX = 0;
-                joystickDY = 0;
-                joystickActive = false;
+            function reset() {
+                thumb.style.left = '35px'; thumb.style.top = '35px';
+                state.dx = 0; state.dy = 0; state.active = false; touchId = null;
             }
-        }
-
-        function resetJoystick() {
-            joystickThumb.style.left = '35px';
-            joystickThumb.style.top = '35px';
-            joystickDX = 0;
-            joystickDY = 0;
-            joystickActive = false;
-            joystickTouchId = null;
-        }
-
-        joystickZone.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const touch = e.changedTouches[0];
-            joystickTouchId = touch.identifier;
-            handleJoystick(touch.clientX, touch.clientY);
-        }, { passive: false });
-
-        joystickZone.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                if (e.changedTouches[i].identifier === joystickTouchId) {
-                    handleJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
-                    break;
+            zone.addEventListener('touchstart', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                const t = e.changedTouches[0];
+                touchId = t.identifier;
+                handle(t.clientX, t.clientY);
+            }, { passive: false });
+            zone.addEventListener('touchmove', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === touchId) { handle(e.changedTouches[i].clientX, e.changedTouches[i].clientY); break; }
                 }
-            }
-        }, { passive: false });
-
-        joystickZone.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                if (e.changedTouches[i].identifier === joystickTouchId) {
-                    resetJoystick();
-                    break;
+            }, { passive: false });
+            zone.addEventListener('touchend', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === touchId) { reset(); break; }
                 }
-            }
-        }, { passive: false });
+            }, { passive: false });
+            zone.addEventListener('touchcancel', () => reset(), { passive: false });
+        }
+        setupJoystick('joystickZone', 'joystickBase', 'joystickThumb', joy1);
+        setupJoystick('joystickZone2', 'joystickBase2', 'joystickThumb2', joy2);
 
-        joystickZone.addEventListener('touchcancel', (e) => {
-            resetJoystick();
-        }, { passive: false });
-
-        // Mobile boost button
-        mobileBoostBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            mobileBoostHeld = true;
-        }, { passive: false });
-
-        mobileBoostBtn.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            mobileBoostHeld = false;
-        }, { passive: false });
-
-        mobileBoostBtn.addEventListener('mousedown', (e) => {
-            e.stopPropagation();
-            mobileBoostHeld = true;
-        });
-
-        mobileBoostBtn.addEventListener('mouseup', (e) => {
-            e.stopPropagation();
-            mobileBoostHeld = false;
-        });
+        // Boost buttons (momentary hold) -> set the matching player's boost flag
+        function setupBoostBtn(btn, set) {
+            if (!btn) return;
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); set(true); }, { passive: false });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); set(false); }, { passive: false });
+            btn.addEventListener('mousedown', (e) => { e.stopPropagation(); set(true); });
+            btn.addEventListener('mouseup', (e) => { e.stopPropagation(); set(false); });
+            btn.addEventListener('mouseleave', () => set(false));
+        }
+        setupBoostBtn(mobileBoostBtn, (v) => { boost1 = v; });
+        setupBoostBtn(document.getElementById('mobileBoostBtn2'), (v) => { boost2 = v; });
 
         // Prevent spacebar scrolling on desktop
         document.addEventListener('keydown', (e) => {
