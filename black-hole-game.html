@@ -238,6 +238,38 @@
             transition: transform 0.1s;
         }
         .diffBtn:hover { transform: scale(1.05); }
+        /* Tip jar / support button (Ko-fi) */
+        .tipBtn {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 9px 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            color: #1a1a2e;
+            background: linear-gradient(180deg, #fcd34d, #f59e0b);
+            border: 2px solid #fbbf24;
+            border-radius: 8px;
+            text-decoration: none;
+            cursor: pointer;
+            position: relative;
+            z-index: 50;
+            pointer-events: auto;
+            box-shadow: 0 0 12px rgba(251, 191, 36, 0.4);
+        }
+        .tipBtn:hover { transform: scale(1.05); }
+        /* "you've played a few times" support nudge */
+        .tipPrompt {
+            max-width: 360px;
+            margin: 16px auto 0;
+            padding: 10px 14px;
+            font-size: 13px;
+            line-height: 1.4;
+            color: #fde68a;
+            background: rgba(251, 191, 36, 0.12);
+            border: 1px solid rgba(251, 191, 36, 0.45);
+            border-radius: 8px;
+        }
         .playerBtn {
             padding: 8px 18px;
             margin: 0 4px;
@@ -631,6 +663,7 @@
                 <button class="diffBtn medium" onclick="startGame('medium')">EXPERIENCED KID</button>
                 <button class="diffBtn hard" onclick="startGame('hard')">I'M A GROWN-UP</button>
             </div>
+            <a class="tipBtn" target="_blank" rel="noopener" href="#">&#9749; Support this game</a>
         </div>
 
         <div id="gameOverScreen" class="hidden">
@@ -647,6 +680,8 @@
                 <button class="diffBtn medium" onclick="startGame('medium')">EXPERIENCED KID</button>
                 <button class="diffBtn hard" onclick="startGame('hard')">I'M A GROWN-UP</button>
             </div>
+            <div class="tipPrompt hidden" id="tipPromptOver"></div>
+            <a class="tipBtn" target="_blank" rel="noopener" href="#">&#9749; Support this game</a>
         </div>
 
         <div id="winScreen" class="hidden">
@@ -664,6 +699,8 @@
                 <button class="diffBtn medium" onclick="startGame('medium')">EXPERIENCED KID</button>
                 <button class="diffBtn hard" onclick="startGame('hard')">I'M A GROWN-UP</button>
             </div>
+            <div class="tipPrompt hidden" id="tipPromptWin"></div>
+            <a class="tipBtn" target="_blank" rel="noopener" href="#">&#9749; Enjoyed it? Support the game</a>
         </div>
 
         <div id="stageIntro" class="hidden">
@@ -1215,6 +1252,35 @@
         function getBestScore() {
             const scores = getHighScores();
             return scores.length > 0 ? scores[0].score : 0;
+        }
+
+        // Track how many games have been played (for the gentle support nudge)
+        const PLAY_COUNT_KEY = 'labEscapePlayCount';
+        function getPlayCount() {
+            try { return parseInt(localStorage.getItem(PLAY_COUNT_KEY) || '0', 10) || 0; }
+            catch (e) { return 0; }
+        }
+        function bumpPlayCount() {
+            try {
+                const n = getPlayCount() + 1;
+                localStorage.setItem(PLAY_COUNT_KEY, String(n));
+                return n;
+            } catch (e) { return 0; }
+        }
+        // Is a real Ko-fi link set? (controls whether tip button / nudge appear)
+        function tipEnabled() {
+            return /^https?:\/\//.test(KOFI_URL) && !KOFI_URL.includes('REPLACE_ME');
+        }
+        // Show a friendly support nudge on an end screen after a few plays
+        function maybeShowTipPrompt(promptEl) {
+            if (!promptEl) return;
+            const pc = getPlayCount();
+            if (tipEnabled() && pc > 3) {
+                promptEl.textContent = '☕ You’ve played ' + pc + ' times — if you’re enjoying it, a small tip keeps the black hole hungry!';
+                promptEl.classList.remove('hidden');
+            } else {
+                promptEl.classList.add('hidden');
+            }
         }
 
         // Colors (pixel art palette)
@@ -5774,6 +5840,7 @@
         // Game functions
         function startGame(diff) {
             difficulty = diff || 'medium';
+            bumpPlayCount();
             initAudio();
             gameRunning = true;
             score = 0;
@@ -5964,6 +6031,7 @@
             }
 
             displayHighScores(highScoreListWinEl, wasHighScore ? score : null);
+            maybeShowTipPrompt(document.getElementById('tipPromptWin'));
             winScreen.classList.remove('hidden');
         }
 
@@ -6073,6 +6141,7 @@
             }
 
             displayHighScores(highScoreListGameOverEl, wasHighScore ? score : null);
+            maybeShowTipPrompt(document.getElementById('tipPromptOver'));
             gameOverScreen.classList.remove('hidden');
         }
 
@@ -7763,6 +7832,18 @@
         // Initialize high scores display
         displayHighScores(highScoreListEl);
         bestScoreEl.textContent = getBestScore();
+
+        // ----- Tip jar (Ko-fi) -----
+        // Paste your Ko-fi page link below. Until a real link is set, the
+        // Support buttons stay hidden so nothing broken ever shows.
+        const KOFI_URL = 'https://ko-fi.com/nicowilde';
+        (function () {
+            const ready = tipEnabled();
+            document.querySelectorAll('.tipBtn').forEach(b => {
+                if (ready) { b.href = KOFI_URL; b.style.display = 'inline-block'; }
+                else { b.style.display = 'none'; }
+            });
+        })();
 
         // Initial draw
         draw();
