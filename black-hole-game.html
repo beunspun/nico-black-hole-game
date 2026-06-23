@@ -5,13 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="description" content="A CERN experiment has gone wrong! You are a tiny black hole - escape the lab, consume countries, devour the Solar System across 5 stages!">
+    <meta name="description" content="A CERN experiment has gone wrong! Play as a tiny black hole - escape the lab, consume the Earth, then devour the Solar System, the Galaxy and the entire Universe across 9 stages. Fight a boss at the end of every level!">
     <meta property="og:title" content="Lab Escape - Black Hole Game">
-    <meta property="og:description" content="A CERN experiment has gone wrong! You are a tiny black hole with an insatiable appetite. Escape the lab. Consume the Earth. Devour the Solar System.">
+    <meta property="og:description" content="A CERN experiment has gone wrong! Play as a black hole and devour everything from the lab to the heavens. 9 levels, 2-player co-op, free in your browser.">
     <meta property="og:type" content="website">
-    <meta name="twitter:card" content="summary">
+    <meta property="og:url" content="https://beunspun.github.io/nico-black-hole-game/">
+    <meta property="og:image" content="https://beunspun.github.io/nico-black-hole-game/icon-512.png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+    <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Lab Escape - Black Hole Game">
-    <meta name="twitter:description" content="Play as a black hole escaping CERN! Consume everything in your path across 5 stages.">
+    <meta name="twitter:description" content="Play as a black hole escaping CERN! Consume everything in your path across 9 stages. Fight a boss at the end of every level.">
+    <meta name="twitter:image" content="https://beunspun.github.io/nico-black-hole-game/icon-512.png">
     <meta name="theme-color" content="#1a1a2e">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Lab Escape - Black Hole Game</title>
@@ -258,6 +263,28 @@
             box-shadow: 0 0 12px rgba(251, 191, 36, 0.4);
         }
         .tipBtn:hover { transform: scale(1.05); }
+        /* Share with friends button */
+        .shareBtn {
+            display: inline-block;
+            margin: 12px 6px 0;
+            padding: 9px 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(180deg, #7c3aed, #5b21b6);
+            border: 2px solid #a855f7;
+            border-radius: 8px;
+            text-decoration: none;
+            cursor: pointer;
+            position: relative;
+            z-index: 50;
+            pointer-events: auto;
+            box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+        }
+        .shareBtn:hover { transform: scale(1.05); }
+        .shareBtn.copied { background: linear-gradient(180deg, #16a34a, #15803d); border-color: #22c55e; }
+        .tipBtn { margin: 12px 6px 0; }
         /* "you've played a few times" support nudge */
         .tipPrompt {
             max-width: 360px;
@@ -663,7 +690,10 @@
                 <button class="diffBtn medium" onclick="startGame('medium')">EXPERIENCED KID</button>
                 <button class="diffBtn hard" onclick="startGame('hard')">I'M A GROWN-UP</button>
             </div>
-            <a class="tipBtn" target="_blank" rel="noopener" href="#">&#9749; Support this game</a>
+            <div style="margin-top: 8px;">
+                <button class="shareBtn" onclick="shareGame(this)">&#128241; Share with a friend</button>
+                <a class="tipBtn" target="_blank" rel="noopener" href="#">&#9749; Support this game</a>
+            </div>
         </div>
 
         <div id="gameOverScreen" class="hidden">
@@ -681,7 +711,10 @@
                 <button class="diffBtn hard" onclick="startGame('hard')">I'M A GROWN-UP</button>
             </div>
             <div class="tipPrompt hidden" id="tipPromptOver"></div>
-            <a class="tipBtn" target="_blank" rel="noopener" href="#">&#9749; Support this game</a>
+            <div style="margin-top: 8px;">
+                <button class="shareBtn" onclick="shareGame(this)">&#128241; Share with a friend</button>
+                <a class="tipBtn" target="_blank" rel="noopener" href="#">&#9749; Support this game</a>
+            </div>
         </div>
 
         <div id="winScreen" class="hidden">
@@ -700,7 +733,10 @@
                 <button class="diffBtn hard" onclick="startGame('hard')">I'M A GROWN-UP</button>
             </div>
             <div class="tipPrompt hidden" id="tipPromptWin"></div>
-            <a class="tipBtn" target="_blank" rel="noopener" href="#">&#9749; Enjoyed it? Support the game</a>
+            <div style="margin-top: 8px;">
+                <button class="shareBtn" onclick="shareGame(this)">&#128241; Share your victory</button>
+                <a class="tipBtn" target="_blank" rel="noopener" href="#">&#9749; Enjoyed it? Support the game</a>
+            </div>
         </div>
 
         <div id="stageIntro" class="hidden">
@@ -7832,6 +7868,31 @@
         // Initialize high scores display
         displayHighScores(highScoreListEl);
         bestScoreEl.textContent = getBestScore();
+
+        // ----- Share the game (WhatsApp / Messages / copy link) -----
+        const SHARE_URL = 'https://beunspun.github.io/nico-black-hole-game/';
+        const SHARE_TEXT = 'Play this black-hole game I found - eat your way from a CERN lab to the entire universe!';
+        async function shareGame(btn) {
+            const data = { title: 'Lab Escape - Black Hole Game', text: SHARE_TEXT, url: SHARE_URL };
+            // Native share sheet on phones/tablets (WhatsApp, Messages, etc.)
+            if (navigator.share) {
+                try { await navigator.share(data); return; }
+                catch (e) { if (e && e.name === 'AbortError') return; /* fall through to copy */ }
+            }
+            // Desktop fallback: copy to clipboard with a friendly confirmation
+            try { await navigator.clipboard.writeText(SHARE_URL); }
+            catch (e) {
+                // Last resort: select-and-copy via a hidden textarea
+                const ta = document.createElement('textarea');
+                ta.value = SHARE_URL; document.body.appendChild(ta);
+                ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+            }
+            if (!btn) return;
+            const original = btn.innerHTML;
+            btn.classList.add('copied');
+            btn.innerHTML = '✓ Link copied!';
+            setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = original; }, 1800);
+        }
 
         // ----- Tip jar (Ko-fi) -----
         // Paste your Ko-fi page link below. Until a real link is set, the
