@@ -400,6 +400,12 @@
             cursor: pointer; white-space: nowrap;
         }
         .lbEntry button:disabled { opacity: 0.7; cursor: default; }
+        .lbStatus { color: #22c55e; font-weight: bold; font-size: 13px; align-self: center; }
+        .lbChange {
+            background: none !important; border: none !important; color: #7dd3fc !important;
+            text-decoration: underline; cursor: pointer; font-size: 12px;
+            font-family: 'Courier New', monospace; padding: 0 !important;
+        }
         #powerUpIndicator {
             position: absolute;
             bottom: 10px;
@@ -753,8 +759,10 @@
             <div id="finalScore">SCORE: 0</div>
             <div id="newHighScore" class="hidden" style="color: #fbbf24; font-size: 18px; margin: 5px 0;">NEW HIGH SCORE!</div>
             <div class="lbEntry hidden" id="lbEntryOver">
-                <input id="lbNameOver" maxlength="12" placeholder="Your name" />
+                <span class="lbStatus hidden" id="lbStatusOver"></span>
+                <input id="lbNameOver" maxlength="12" placeholder="Enter your name" />
                 <button id="lbSubmitOver">Add to leaderboard</button>
+                <button class="lbChange hidden" id="lbChangeOver" type="button">change name</button>
             </div>
             <div id="highScoresGameOver">
                 <h3 style="color: #fbbf24; font-size: 14px; margin: 15px 0 8px 0;">HIGH SCORES</h3>
@@ -779,8 +787,10 @@
             <div id="winScore" style="font-size: 28px; color: #fbbf24; margin: 15px 0;">SCORE: 0</div>
             <div id="winHighScore" class="hidden" style="color: #00ff88; font-size: 18px; margin: 5px 0;">NEW HIGH SCORE!</div>
             <div class="lbEntry hidden" id="lbEntryWin">
-                <input id="lbNameWin" maxlength="12" placeholder="Your name" />
+                <span class="lbStatus hidden" id="lbStatusWin"></span>
+                <input id="lbNameWin" maxlength="12" placeholder="Enter your name" />
                 <button id="lbSubmitWin">Add to leaderboard</button>
+                <button class="lbChange hidden" id="lbChangeWin" type="button">change name</button>
             </div>
             <div id="highScoresWin">
                 <h3 style="color: #fbbf24; font-size: 14px; margin: 15px 0 8px 0;">HIGH SCORES</h3>
@@ -1359,14 +1369,25 @@
             if (window.LEADERBOARD && LEADERBOARD.enabled()) {
                 container.innerHTML = '<div class="highScoreEntry">Loading…</div>';
                 try {
-                    const rows = await LEADERBOARD.top(10);
-                    if (rows && rows.length) {
-                        container.innerHTML = rows.map((r, i) =>
-                            `<div class="highScoreEntry"><span>${i + 1}. ${escapeHtml((r.name || 'Anon')).slice(0, 14)}</span><span>${Math.floor(r.score) || 0}</span></div>`
-                        ).join('');
+                    const raw = await LEADERBOARD.top(50);
+                    if (raw) {
+                        // Keep only each player's best score, then take the top 10
+                        const best = {};
+                        for (const r of raw) {
+                            const nm = (r.name || 'Anon'), sc = Math.floor(r.score) || 0;
+                            if (!(nm in best) || sc > best[nm]) best[nm] = sc;
+                        }
+                        const rows = Object.keys(best).map(nm => ({ name: nm, score: best[nm] }))
+                            .sort((a, b) => b.score - a.score).slice(0, 10);
+                        if (rows.length) {
+                            container.innerHTML = rows.map((r, i) =>
+                                `<div class="highScoreEntry"><span>${i + 1}. ${escapeHtml(r.name).slice(0, 14)}</span><span>${r.score}</span></div>`
+                            ).join('');
+                        } else {
+                            container.innerHTML = '<div class="highScoreEntry">Be the first!</div>';
+                        }
                         return;
                     }
-                    if (rows) { container.innerHTML = '<div class="highScoreEntry">Be the first!</div>'; return; }
                 } catch (e) { /* fall back to local */ }
             }
             displayHighScores(container, highlightScore);
@@ -1374,26 +1395,51 @@
         // Called by the Firebase module once it has initialised
         window.__lbReady = function () { showScores(highScoreListEl); };
 
-        // Name-entry box shown on the end screens when the leaderboard is on
+        // End-screen leaderboard entry: type your name ONCE, then scores auto-add.
+        const NAME_KEY = 'labEscapeName';
+        function getPlayerName() { try { return (localStorage.getItem(NAME_KEY) || '').trim(); } catch (e) { return ''; } }
+        function savePlayerName(n) { try { localStorage.setItem(NAME_KEY, n); } catch (e) {} }
+
         function setupLbEntry(kind, score) {
             const entry = document.getElementById('lbEntry' + kind);
             if (!entry) return;
             const input = document.getElementById('lbName' + kind);
             const btn = document.getElementById('lbSubmit' + kind);
+            const status = document.getElementById('lbStatus' + kind);
+            const change = document.getElementById('lbChange' + kind);
             const list = (kind === 'Win') ? highScoreListWinEl : highScoreListGameOverEl;
+
             if (!(window.LEADERBOARD && LEADERBOARD.enabled()) || score <= 0) { entry.classList.add('hidden'); return; }
             entry.classList.remove('hidden');
-            try { input.value = localStorage.getItem('labEscapeName') || ''; } catch (e) {}
-            btn.disabled = false; btn.textContent = 'Add to leaderboard';
-            btn.onclick = async () => {
-                const name = ((input.value || 'Anon').trim() || 'Anon').slice(0, 12);
-                try { localStorage.setItem('labEscapeName', name); } catch (e) {}
+
+            const showInput = (prefill) => {
+                status.classList.add('hidden'); change.classList.add('hidden');
+                input.classList.remove('hidden'); btn.classList.remove('hidden');
+                input.value = prefill || ''; btn.disabled = false; btn.textContent = 'Add to leaderboard';
+            };
+            const showAdded = (name) => {
+                input.classList.add('hidden'); btn.classList.add('hidden');
+                status.classList.remove('hidden'); change.classList.remove('hidden');
+                status.textContent = '✓ Added as ' + name;
+            };
+            const doSubmit = async (rawName) => {
+                const name = ((rawName || 'Anon').trim() || 'Anon').slice(0, 12);
+                savePlayerName(name);
+                status.classList.add('hidden'); change.classList.add('hidden');
+                input.classList.add('hidden'); btn.classList.remove('hidden');
                 btn.disabled = true; btn.textContent = 'Adding…';
                 try { await LEADERBOARD.submit(name, score); }
-                catch (e) { btn.disabled = false; btn.textContent = 'Try again'; return; }
-                btn.textContent = 'Added ✓';
+                catch (e) { showInput(name); btn.textContent = 'Try again'; return; }
+                showAdded(name);
                 showScores(list, score);
             };
+
+            btn.onclick = () => doSubmit(input.value);
+            change.onclick = () => showInput(getPlayerName());
+
+            const saved = getPlayerName();
+            if (saved) { doSubmit(saved); }   // name remembered -> add automatically, no typing
+            else { showInput(''); }            // first time -> ask once
         }
 
         // Track how many games have been played (for the gentle support nudge)
