@@ -1,5 +1,5 @@
 /* Service worker for Lab Escape - Black Hole Game (offline-capable PWA) */
-const CACHE = 'black-hole-20260624105746';
+const CACHE = 'black-hole-20260624110344';
 const ASSETS = [
   './black-hole-game.html',
   './manifest.webmanifest',
