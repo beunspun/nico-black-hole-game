@@ -385,6 +385,21 @@
         .highScoreEntry.new {
             color: #00ff88;
         }
+        /* Leaderboard name-entry box */
+        .lbEntry {
+            margin: 10px auto; display: flex; gap: 8px; justify-content: center;
+            max-width: 320px; position: relative; z-index: 50;
+        }
+        .lbEntry input {
+            flex: 1; min-width: 0; padding: 8px 10px; font-family: 'Courier New', monospace;
+            font-size: 14px; background: #0f172a; border: 2px solid #4a4a6a; border-radius: 6px; color: #fff;
+        }
+        .lbEntry button {
+            padding: 8px 14px; font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold;
+            background: #16a34a; border: 2px solid #22c55e; color: #fff; border-radius: 6px;
+            cursor: pointer; white-space: nowrap;
+        }
+        .lbEntry button:disabled { opacity: 0.7; cursor: default; }
         #powerUpIndicator {
             position: absolute;
             bottom: 10px;
@@ -737,6 +752,10 @@
             <p>The scientists caught you!</p>
             <div id="finalScore">SCORE: 0</div>
             <div id="newHighScore" class="hidden" style="color: #fbbf24; font-size: 18px; margin: 5px 0;">NEW HIGH SCORE!</div>
+            <div class="lbEntry hidden" id="lbEntryOver">
+                <input id="lbNameOver" maxlength="12" placeholder="Your name" />
+                <button id="lbSubmitOver">Add to leaderboard</button>
+            </div>
             <div id="highScoresGameOver">
                 <h3 style="color: #fbbf24; font-size: 14px; margin: 15px 0 8px 0;">HIGH SCORES</h3>
                 <div id="highScoreListGameOver"></div>
@@ -759,6 +778,10 @@
             <p>From a tiny CERN experiment to the end of all reality... the universe, the multiverse, and the heavens themselves vanished into the void. Nothing remains.</p>
             <div id="winScore" style="font-size: 28px; color: #fbbf24; margin: 15px 0;">SCORE: 0</div>
             <div id="winHighScore" class="hidden" style="color: #00ff88; font-size: 18px; margin: 5px 0;">NEW HIGH SCORE!</div>
+            <div class="lbEntry hidden" id="lbEntryWin">
+                <input id="lbNameWin" maxlength="12" placeholder="Your name" />
+                <button id="lbSubmitWin">Add to leaderboard</button>
+            </div>
             <div id="highScoresWin">
                 <h3 style="color: #fbbf24; font-size: 14px; margin: 15px 0 8px 0;">HIGH SCORES</h3>
                 <div id="highScoreListWin"></div>
@@ -1324,6 +1347,53 @@
         function getBestScore() {
             const scores = getHighScores();
             return scores.length > 0 ? scores[0].score : 0;
+        }
+
+        // ----- Global leaderboard (Firebase) with local fallback -----
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        // Render the global top-10 if Firebase is configured, otherwise the local scores
+        async function showScores(container, highlightScore = null) {
+            if (!container) return;
+            if (window.LEADERBOARD && LEADERBOARD.enabled()) {
+                container.innerHTML = '<div class="highScoreEntry">Loading…</div>';
+                try {
+                    const rows = await LEADERBOARD.top(10);
+                    if (rows && rows.length) {
+                        container.innerHTML = rows.map((r, i) =>
+                            `<div class="highScoreEntry"><span>${i + 1}. ${escapeHtml((r.name || 'Anon')).slice(0, 14)}</span><span>${Math.floor(r.score) || 0}</span></div>`
+                        ).join('');
+                        return;
+                    }
+                    if (rows) { container.innerHTML = '<div class="highScoreEntry">Be the first!</div>'; return; }
+                } catch (e) { /* fall back to local */ }
+            }
+            displayHighScores(container, highlightScore);
+        }
+        // Called by the Firebase module once it has initialised
+        window.__lbReady = function () { showScores(highScoreListEl); };
+
+        // Name-entry box shown on the end screens when the leaderboard is on
+        function setupLbEntry(kind, score) {
+            const entry = document.getElementById('lbEntry' + kind);
+            if (!entry) return;
+            const input = document.getElementById('lbName' + kind);
+            const btn = document.getElementById('lbSubmit' + kind);
+            const list = (kind === 'Win') ? highScoreListWinEl : highScoreListGameOverEl;
+            if (!(window.LEADERBOARD && LEADERBOARD.enabled()) || score <= 0) { entry.classList.add('hidden'); return; }
+            entry.classList.remove('hidden');
+            try { input.value = localStorage.getItem('labEscapeName') || ''; } catch (e) {}
+            btn.disabled = false; btn.textContent = 'Add to leaderboard';
+            btn.onclick = async () => {
+                const name = ((input.value || 'Anon').trim() || 'Anon').slice(0, 12);
+                try { localStorage.setItem('labEscapeName', name); } catch (e) {}
+                btn.disabled = true; btn.textContent = 'Adding…';
+                try { await LEADERBOARD.submit(name, score); }
+                catch (e) { btn.disabled = false; btn.textContent = 'Try again'; return; }
+                btn.textContent = 'Added ✓';
+                showScores(list, score);
+            };
         }
 
         // Track how many games have been played (for the gentle support nudge)
@@ -6106,7 +6176,8 @@
                 winHighScoreEl.classList.add('hidden');
             }
 
-            displayHighScores(highScoreListWinEl, wasHighScore ? score : null);
+            showScores(highScoreListWinEl, wasHighScore ? score : null);
+            setupLbEntry('Win', score);
             maybeShowTipPrompt(document.getElementById('tipPromptWin'));
             winScreen.classList.remove('hidden');
         }
@@ -6216,7 +6287,8 @@
                 newHighScoreEl.classList.add('hidden');
             }
 
-            displayHighScores(highScoreListGameOverEl, wasHighScore ? score : null);
+            showScores(highScoreListGameOverEl, wasHighScore ? score : null);
+            setupLbEntry('Over', score);
             maybeShowTipPrompt(document.getElementById('tipPromptOver'));
             gameOverScreen.classList.remove('hidden');
         }
@@ -7782,7 +7854,7 @@
             document.getElementById('stageIntro').classList.add('hidden');
             armorDisplay.classList.add('hidden');
             // Refresh the high score list and show the start screen
-            displayHighScores(highScoreListEl);
+            showScores(highScoreListEl);
             bestScoreEl.textContent = getBestScore();
             startScreen.classList.remove('hidden');
         }
@@ -7947,6 +8019,39 @@
                 navigator.serviceWorker.register('sw.js').catch(function () {});
             });
         }
+    </script>
+
+    <!-- Global leaderboard (Firebase Firestore).
+         Paste your firebaseConfig values below to switch it on. Until then the
+         game just uses local high scores, and Firebase is never even downloaded. -->
+    <script type="module">
+        const firebaseConfig = {
+            apiKey: "AIzaSyCY7_5I2M5HdFjdyTV142DvxNqq3LysgJo",
+            authDomain: "blackhole-ee3dd.firebaseapp.com",
+            projectId: "blackhole-ee3dd",
+            storageBucket: "blackhole-ee3dd.firebasestorage.app",
+            messagingSenderId: "4071699367",
+            appId: "1:4071699367:web:1191b6a6803e40c189bc82"
+        };
+        if (firebaseConfig.projectId && !firebaseConfig.projectId.includes('REPLACE')) {
+            try {
+                const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+                const { getFirestore, collection, addDoc, query, orderBy, limit, getDocs } =
+                    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+                const db = getFirestore(initializeApp(firebaseConfig));
+                window.LEADERBOARD = {
+                    enabled: () => true,
+                    submit: (name, score) => addDoc(collection(db, 'scores'), {
+                        name: String(name).slice(0, 12), score: Math.floor(score) || 0, ts: Date.now()
+                    }),
+                    top: async (n = 10) => {
+                        const snap = await getDocs(query(collection(db, 'scores'), orderBy('score', 'desc'), limit(n)));
+                        return snap.docs.map(d => d.data());
+                    }
+                };
+            } catch (e) { /* leave leaderboard off; game falls back to local scores */ }
+        }
+        if (window.__lbReady) window.__lbReady();
     </script>
 </body>
 </html>
