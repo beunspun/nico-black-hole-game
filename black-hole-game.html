@@ -263,6 +263,32 @@
             box-shadow: 0 0 12px rgba(251, 191, 36, 0.4);
         }
         .tipBtn:hover { transform: scale(1.05); }
+        /* Homepage action row + How-to-play modal */
+        .menuRow { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+        .menuBtn {
+            padding: 10px 18px; font-family: 'Courier New', monospace; font-size: 14px; font-weight: bold;
+            color: #fff; background: #3730a3; border: 2px solid #6366f1; border-radius: 8px;
+            cursor: pointer; position: relative; z-index: 50; pointer-events: auto;
+        }
+        .menuBtn:hover { transform: scale(1.05); }
+        #howToModal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 12, 24, 0.93); display: flex; align-items: center; justify-content: center;
+            z-index: 40; padding: 20px; box-sizing: border-box;
+        }
+        .modalCard {
+            background: #16213e; border: 2px solid #4a4a6a; border-radius: 12px;
+            max-width: 470px; width: 100%; max-height: 84vh; overflow-y: auto;
+            padding: 22px 24px; text-align: left; position: relative; color: #cbd5e1;
+        }
+        .modalCard h2 { font-size: 22px; }
+        .modalCard p { font-size: 13px; line-height: 1.5; margin: 4px 0; color: #cbd5e1; }
+        .modalCard .howHd { margin-top: 14px; font-weight: bold; }
+        .modalClose {
+            position: absolute; top: 8px; right: 12px; background: none; border: none;
+            color: #aaa; font-size: 24px; cursor: pointer; line-height: 1;
+        }
+        .modalClose:hover { color: #fff; }
         /* Share with friends button */
         .shareBtn {
             display: inline-block;
@@ -657,30 +683,8 @@
 
         <div id="startScreen">
             <h1>LAB ESCAPE</h1>
-            <p>A CERN experiment with the Large Hadron Collider has gone wrong.</p>
-            <p>You are the result - a tiny black hole with an insatiable appetite!</p>
-            <p>Escape the lab. Consume Switzerland. Devour the Solar System.</p>
-            <p style="margin-top: 20px; color: #00ff88;">CONTROLS:</p>
-            <p>Mouse/Touch or WASD to move</p>
-            <p>SPACE / Boost button to spin accretion disk</p>
-            <p style="margin-top: 10px; color: #06b6d4;">DISK BOOST:</p>
-            <p style="font-size: 12px;">Deflects barriers! Watch your energy meter.</p>
-            <p style="margin-top: 10px; color: #f97316;">RIVAL BLACK HOLES:</p>
-            <p style="font-size: 12px;">Collide to merge! Gravitational wave burst clears the screen.</p>
-            <p style="margin-top: 10px; color: #fbbf24;">POWER-UPS:</p>
-            <p style="font-size: 12px;">Shield (blue) | Speed (yellow) | Magnet (pink) | Mega (purple)</p>
-            <p style="margin-top: 10px; color: #f472b6;">TRADE-OFF MOVES:</p>
-            <p style="font-size: 12px;">Tap the on-screen buttons, or press Q / E</p>
-            <p style="font-size: 12px;">Q = shrink a bit, get ALL power-ups | E = lose speed, grow bigger</p>
-            <p style="margin-top: 10px; color: #34d399;">2-PLAYER CO-OP:</p>
-            <p style="font-size: 12px;">On a tablet: each player gets their own joystick (P1 left, P2 right)</p>
-            <p style="font-size: 12px;">On a keyboard: P1 = WASD + SPACE | P2 = Arrow keys + RIGHT SHIFT</p>
-            <p style="font-size: 12px;">P2 trade-offs: , = all power-ups | . = bigger</p>
-            <div id="highScores">
-                <h3>HIGH SCORES</h3>
-                <div id="highScoreList"></div>
-            </div>
-            <div style="margin-top: 15px;">
+            <p style="max-width: 420px;">Be a black hole. Devour everything &mdash; from a CERN lab to the entire universe. 9 levels, a boss at the end of each.</p>
+            <div style="margin-top: 14px;">
                 <p style="color: #00ff88; margin-bottom: 6px;">PLAYERS:</p>
                 <button class="playerBtn selected" id="onePlayerBtn" onclick="setPlayers(1)">1 PLAYER</button>
                 <button class="playerBtn" id="twoPlayerBtn" onclick="setPlayers(2)">2 PLAYER CO-OP</button>
@@ -690,9 +694,39 @@
                 <button class="diffBtn medium" onclick="startGame('medium')">EXPERIENCED KID</button>
                 <button class="diffBtn hard" onclick="startGame('hard')">I'M A GROWN-UP</button>
             </div>
-            <div style="margin-top: 8px;">
-                <button class="shareBtn" onclick="shareGame(this)">&#128279; Share with a friend</button>
-                <a class="tipBtn" target="_blank" rel="noopener" href="https://buy.stripe.com/5kQfZi4mk8fy9gD9bw9sk00">&#9749; Support the game</a>
+            <div class="menuRow">
+                <button class="menuBtn" onclick="openHowTo()">&#10067; How to play</button>
+                <button class="shareBtn" onclick="shareGame(this)">&#128279; Share</button>
+                <a class="tipBtn" target="_blank" rel="noopener" href="https://buy.stripe.com/5kQfZi4mk8fy9gD9bw9sk00">&#9749; Support</a>
+            </div>
+            <div id="highScores">
+                <h3>HIGH SCORES</h3>
+                <div id="highScoreList"></div>
+            </div>
+        </div>
+
+        <div id="howToModal" class="hidden" onclick="if(event.target===this)closeHowTo()">
+            <div class="modalCard">
+                <button class="modalClose" onclick="closeHowTo()" aria-label="Close">&#10005;</button>
+                <h2 style="color: #a855f7;">HOW TO PLAY</h2>
+                <p>A CERN experiment went wrong &mdash; you're a tiny black hole with an endless appetite. Eat everything and grow across 9 levels, with a big boss at the end of each.</p>
+                <p class="howHd" style="color: #00ff88;">CONTROLS</p>
+                <p>Mouse / touch / WASD to move. SPACE (or the BOOST button) spins your accretion disk.</p>
+                <p class="howHd" style="color: #06b6d4;">DISK BOOST</p>
+                <p>Deflects enemy barriers &mdash; watch your energy meter.</p>
+                <p class="howHd" style="color: #f97316;">RIVAL BLACK HOLES</p>
+                <p>Collide to merge &mdash; a gravitational wave clears the screen.</p>
+                <p class="howHd" style="color: #fbbf24;">POWER-UPS</p>
+                <p>Shield (blue) &middot; Speed (yellow) &middot; Magnet (pink) &middot; Mega (purple)</p>
+                <p class="howHd" style="color: #f472b6;">TRADE-OFF MOVES</p>
+                <p>Q = shrink a bit, get ALL power-ups. E = lose speed, grow bigger. (Or tap the on-screen buttons.)</p>
+                <p class="howHd" style="color: #34d399;">BOSSES</p>
+                <p>At the end of a level a shielded boss appears &mdash; eat its minions to drop the shield, then eat the boss!</p>
+                <p class="howHd" style="color: #34d399;">2-PLAYER CO-OP</p>
+                <p>Tablet: each player gets a joystick (P1 left, P2 right). Keyboard: P1 = WASD + SPACE, P2 = Arrows + Right Shift (P2 trade-offs: , and .).</p>
+                <div style="text-align: center;">
+                    <button class="diffBtn medium" style="margin-top: 16px; width: auto; padding: 10px 28px;" onclick="closeHowTo()">Got it!</button>
+                </div>
             </div>
         </div>
 
@@ -5865,6 +5899,10 @@
                 gameLoop();
             });
         }
+
+        // How-to-play modal
+        function openHowTo() { document.getElementById('howToModal').classList.remove('hidden'); }
+        function closeHowTo() { document.getElementById('howToModal').classList.add('hidden'); }
 
         // Start-screen player-count toggle
         function setPlayers(n) {
