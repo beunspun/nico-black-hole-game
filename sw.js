@@ -1,5 +1,5 @@
 /* Service worker for Lab Escape - Black Hole Game (offline-capable PWA) */
-const CACHE = 'black-hole-20260624102731';
+const CACHE = 'black-hole-20260624105746';
 const ASSETS = [
   './black-hole-game.html',
   './manifest.webmanifest',
@@ -25,6 +25,9 @@ self.addEventListener('activate', (e) => {
 // Cache-first: play fully offline; fall back to the game page for navigations.
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  // Never touch cross-origin requests (e.g. Stripe's js / checkout) - let them
+  // hit the network directly so we don't cache or stale third-party scripts.
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     caches.match(e.request).then((cached) => {
       if (cached) return cached;
